@@ -1,0 +1,13 @@
+<header class="topbar">
+  <h1>BMI Tracker</h1>
+  <nav>
+    <a routerLink="/user"    *ngIf="isLoggedIn() && !isAdmin()">My BMI</a>
+    <a routerLink="/profile" *ngIf="isLoggedIn()">Profile</a>
+    <a routerLink="/admin"   *ngIf="isLoggedIn() && isAdmin()">Admin</a>
+    <button *ngIf="isLoggedIn()" (click)="logout()">Logout ({{ username() }})</button>
+  </nav>
+</header>
+
+<main class="content">
+  <router-outlet></router-outlet>
+</main>
