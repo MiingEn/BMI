@@ -15,7 +15,7 @@
 - User-friendly error messages for invalid requests
 - Role-based access control for USER and ADMIN
 
-## Tech stack
+## Tech Stack
 - Backend: Spring Boot, Spring Security, JWT, JPA, SQLite
 - Frontend: Angular (standalone components)
 
