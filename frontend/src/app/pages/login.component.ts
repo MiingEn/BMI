@@ -18,10 +18,40 @@ const ROLE_ADMIN = 'ROLE_ADMIN';
       <form [formGroup]="form" (ngSubmit)="login()">
         <label>Username
           <input type="text" formControlName="username" />
-        </label>
+          <div class="field-error"
+              *ngIf="form.controls.username.touched && form.controls.username.invalid">
+
+            <span *ngIf="form.controls.username.errors?.['required']">
+              Username is required.
+            </span>
+
+            <span *ngIf="form.controls.username.errors?.['minlength']">
+              Username must contain at least 3 characters.
+            </span>
+
+            <span *ngIf="form.controls.username.errors?.['maxlength']">
+              Username cannot exceed 40 characters.
+            </span>
+          </div>
+          </label>
         <label>Password
           <input type="password" formControlName="password" />
-        </label>
+        <div class="field-error"
+            *ngIf="form.controls.password.touched && form.controls.password.invalid">
+
+          <span *ngIf="form.controls.password.errors?.['required']">
+            Password is required.
+          </span>
+
+          <span *ngIf="form.controls.password.errors?.['minlength']">
+            Password must contain at least 6 characters.
+          </span>
+
+          <span *ngIf="form.controls.password.errors?.['maxlength']">
+            Password cannot exceed 72 characters.
+          </span>
+        </div>
+          </label>
 
         <div class="btn-row">
           <button type="submit">Login</button>
@@ -41,7 +71,11 @@ const ROLE_ADMIN = 'ROLE_ADMIN';
       <p><strong>Features:</strong> BMI tracking, history, analytics, admin controls</p>
     </section>
   `,
-  styles: [`
+  styles: [
+    `.field-error { color:#b11131; font-size:.82rem; margin-top:.25rem; }`,
+    `.field-error span { display:block; }`,
+    `input.ng-invalid.ng-touched { border-color:#b11131; }`,
+    `
     .card {
       background: #fff;
       border-radius: 12px;
@@ -77,12 +111,31 @@ export class LoginComponent {
   errorMessage = '';
 
   form = this.fb.group({
-    username: ['', Validators.required],
-    password: ['', Validators.required]
-  });
+  username: [
+    '',
+    [
+      Validators.required,
+      Validators.minLength(3),
+      Validators.maxLength(40)
+    ]
+  ],
+  password: [
+    '',
+    [
+      Validators.required,
+      Validators.minLength(6),
+      Validators.maxLength(72)
+    ]
+  ]
+});
 
   login(): void {
-    if (this.form.invalid) return;
+  this.errorMessage = '';
+
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
+  }
     const { username, password } = this.form.getRawValue();
     this.api.login(username!, password!).subscribe({
       next:  (res) => { this.auth.setSession(res); this.redirectByRole(res.role); },
@@ -91,7 +144,12 @@ export class LoginComponent {
   }
 
   register(): void {
-    if (this.form.invalid) return;
+  this.errorMessage = '';
+
+  if (this.form.invalid) {
+    this.form.markAllAsTouched();
+    return;
+  }
     const { username, password } = this.form.getRawValue();
     this.api.register(username!, password!).subscribe({
       next:  (res) => { this.auth.setSession(res); this.redirectByRole(res.role); },
