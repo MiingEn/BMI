@@ -1,5 +1,6 @@
 package com.example.bmi.controller;
 
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -38,5 +39,18 @@ public class GlobalExceptionHandler {
 
     private Map<String, String> errorBody(String message) {
         return Map.of("message", message);
+    }
+    
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(
+            ResponseStatusException ex) {
+
+        String message = ex.getReason() != null
+                ? ex.getReason()
+                : "Request failed";
+
+        return ResponseEntity
+                .status(ex.getStatusCode())
+                .body(Map.of("message", message));
     }
 }
