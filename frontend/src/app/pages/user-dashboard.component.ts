@@ -68,17 +68,54 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
       <article class="card">
         <h2>{{ isEditing ? 'Edit BMI Record' : 'Log BMI' }}</h2>
         <form [formGroup]="form" (ngSubmit)="submit()">
-          <label>Height (cm)
-            <input type="number" formControlName="heightCm" min="50" max="300" />
-          </label>
-          <label>Weight (kg)
-            <input type="number" formControlName="weightKg" min="10" max="500" />
-          </label>
+        <label>Height (cm)
+          <input type="number" formControlName="heightCm" min="50" max="300" />
+
+          <div class="field-error"
+              *ngIf="form.controls.heightCm.touched && form.controls.heightCm.invalid">
+
+            <span *ngIf="form.controls.heightCm.errors?.['required']">
+              Height is required.
+            </span>
+
+            <span *ngIf="form.controls.heightCm.errors?.['min']">
+              Height must be at least 50 cm.
+            </span>
+
+            <span *ngIf="form.controls.heightCm.errors?.['max']">
+              Height cannot exceed 300 cm.
+            </span>
+          </div>
+        </label>
+
+        <label>Weight (kg)
+          <input type="number" formControlName="weightKg" min="10" max="500" />
+
+          <div class="field-error"
+              *ngIf="form.controls.weightKg.touched && form.controls.weightKg.invalid">
+
+            <span *ngIf="form.controls.weightKg.errors?.['required']">
+              Weight is required.
+            </span>
+
+            <span *ngIf="form.controls.weightKg.errors?.['min']">
+              Weight must be at least 10 kg.
+            </span>
+
+            <span *ngIf="form.controls.weightKg.errors?.['max']">
+              Weight cannot exceed 500 kg.
+            </span>
+          </div>
+        </label>
           <div class="btn-row">
             <button type="submit" class="primary">{{ isEditing ? 'Update' : 'Save' }}</button>
             <button *ngIf="isEditing" type="button" class="secondary" (click)="cancelEdit()">Cancel</button>
           </div>
         </form>
+
+        <p class="error-message" *ngIf="formError">
+          {{ formError }}
+        </p>
 
         <!-- Real-time BMI preview -->
         <div *ngIf="previewBmi > 0" class="preview-card" [style.border-color]="previewCategory.color">
@@ -147,7 +184,13 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
           <button class="secondary sm" (click)="clearFilter()">Clear</button>
         </div>
       </div>
+      <p class="error-message" *ngIf="filterError">
+        {{ filterError }}
+      </p>
 
+      <p class="error-message" *ngIf="historyError">
+        {{ historyError }}
+      </p>
       <!-- Toolbar: page size + record count -->
       <div class="table-toolbar" *ngIf="allHistory.length > 0">
         <span class="record-count">{{ allHistory.length }} record{{ allHistory.length !== 1 ? 's' : '' }}</span>
@@ -245,6 +288,25 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
       border: 1px solid #c9d4e2; border-radius: 8px; box-sizing: border-box; font-size: .95rem; outline: none;
     }
     input:focus { border-color: #0f67c4; }
+      input.ng-invalid.ng-touched {
+        border-color: #b11131;
+      }
+
+      .field-error {
+        color: #b11131;
+        font-size: .78rem;
+        margin-top: .25rem;
+      }
+
+      .field-error span {
+        display: block;
+      }
+
+      .error-message {
+        color: #b11131;
+        font-size: .85rem;
+        margin: .6rem 0 0;
+      }
 
     .btn-row { display: flex; gap: .6rem; margin-top: .85rem; flex-wrap: wrap; }
     button.primary   { border: none; border-radius: 8px; padding: .55rem 1.1rem; background: #0f67c4; color: #fff; cursor: pointer; font-size: .9rem; }
@@ -349,6 +411,10 @@ export class UserDashboardComponent implements OnInit {
   filterFrom = '';
   filterTo   = '';
 
+  formError = '';
+  filterError = '';
+  historyError = '';
+
   // Sorting
   sortField:     SortField     = 'createdAt';
   sortDirection: SortDirection = 'desc';
@@ -428,16 +494,41 @@ export class UserDashboardComponent implements OnInit {
   // ── Form actions ─────────────────────────────────────────────────────────
 
   submit(): void {
-    if (this.form.invalid) return;
+    this.formError = '';
+
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
     const { heightCm, weightKg } = this.form.getRawValue();
 
     if (this.isEditing && this.editingRecordId !== null) {
-      this.api.updateBmiRecord(this.editingRecordId, heightCm!, weightKg!).subscribe(() => {
-        this.cancelEdit();
-        this.loadHistory();
-      });
+      this.api
+        .updateBmiRecord(this.editingRecordId, heightCm!, weightKg!)
+        .subscribe({
+          next: () => {
+            this.cancelEdit();
+            this.loadHistory();
+          },
+          error: (err) => {
+            this.formError =
+              err?.error?.message ?? 'Unable to update BMI record.';
+          }
+        });
+
     } else {
-      this.api.createBmiRecord(heightCm!, weightKg!).subscribe(() => this.loadHistory());
+      this.api
+        .createBmiRecord(heightCm!, weightKg!)
+        .subscribe({
+          next: () => {
+            this.loadHistory();
+          },
+          error: (err) => {
+            this.formError =
+              err?.error?.message ?? 'Unable to save BMI record.';
+          }
+        });
     }
   }
 
@@ -460,28 +551,71 @@ export class UserDashboardComponent implements OnInit {
 
   confirmDelete(): void {
     if (this.pendingDeleteId === null) return;
-    this.api.deleteBmiRecord(this.pendingDeleteId).subscribe(() => {
-      this.pendingDeleteId = null;
-      this.loadHistory();
+
+    this.historyError = '';
+
+    this.api.deleteBmiRecord(this.pendingDeleteId).subscribe({
+      next: () => {
+        this.pendingDeleteId = null;
+        this.loadHistory();
+      },
+      error: (err) => {
+        this.pendingDeleteId = null;
+        this.historyError =
+          err?.error?.message ?? 'Unable to delete BMI record.';
+      }
     });
   }
 
   // ── Filter actions ────────────────────────────────────────────────────────
 
-  applyFilter(): void { this.loadHistory(this.filterFrom, this.filterTo); }
-  clearFilter(): void { this.filterFrom = ''; this.filterTo = ''; this.loadHistory(); }
+  applyFilter(): void {
+    this.filterError = '';
 
+    if (
+      this.filterFrom &&
+      this.filterTo &&
+      this.filterFrom > this.filterTo
+    ) {
+      this.filterError =
+        'From date cannot be later than To date.';
+      return;
+    }
+
+    this.loadHistory(this.filterFrom, this.filterTo);
+  }
+
+  clearFilter(): void {
+    this.filterFrom = '';
+    this.filterTo = '';
+    this.filterError = '';
+    this.loadHistory();
+  }
   // ── Private helpers ───────────────────────────────────────────────────────
 
   private loadHistory(from = '', to = ''): void {
-    this.api.getBmiHistory(from || undefined, to || undefined).subscribe(records => {
-      this.summary    = this.buildSummary(records);
-      this.allHistory = records;
-      this.currentPage = 1;
-      this.applySortAndPage();
-    });
-  }
+    this.historyError = '';
 
+    this.api
+      .getBmiHistory(from || undefined, to || undefined)
+      .subscribe({
+        next: (records) => {
+          this.summary = this.buildSummary(records);
+          this.allHistory = records;
+          this.currentPage = 1;
+          this.applySortAndPage();
+        },
+        error: (err) => {
+          this.summary = EMPTY_SUMMARY;
+          this.allHistory = [];
+          this.pagedHistory = [];
+
+          this.historyError =
+            err?.error?.message ?? 'Unable to load BMI history.';
+        }
+      });
+  }
+  
   private applySortAndPage(): void {
     this.allHistory = this.sortRecords(this.allHistory);
     this.applyPage();
